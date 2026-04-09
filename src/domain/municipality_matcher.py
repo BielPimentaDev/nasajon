@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional
 
 from .ibge_entities import IbgeMunicipality
 from .municipality import MunicipalityInput

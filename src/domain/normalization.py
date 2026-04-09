@@ -44,7 +44,6 @@ def levenshtein_distance(a: str, b: str) -> int:
     if not b:
         return len(a)
 
-    # Classic dynamic programming implementation
     prev_row = list(range(len(b) + 1))
     for i, ca in enumerate(a, start=1):
         current_row = [i]

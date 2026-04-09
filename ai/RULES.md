@@ -51,6 +51,11 @@ Estas regras servem para guiar todo o desenvolvimento do projeto.
   - Edge Function (HTTP POST com ACCESS_TOKEN).
   - Sistema de arquivos (leitura/escrita de CSV).
   - Configuração (variáveis de ambiente/constantes).
+- URLs de serviços externos (ex.: endpoints do IBGE, Edge Function,
+  outros backends) **devem ser obtidas via variáveis de ambiente ou
+  configuração injetada nos adapters**, nunca hardcoded no domínio ou
+  nos casos de uso. Adapters podem ter valores default sensatos, mas
+  a fonte de verdade é sempre o ambiente/config.
 - Regra: **nenhum código de domínio ou caso de uso deve chamar diretamente `requests`, ler arquivos ou acessar `os.environ`**.
 - Tratamento de erros de rede/IO fica nos adapters; o domínio recebe respostas claras (sucesso/erro) via objetos/resultado.
 
