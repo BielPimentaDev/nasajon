@@ -46,11 +46,37 @@ def test_typos_are_tolerated_for_dataset_examples(ibge_sample: list[IbgeMunicipa
     assert curitiba_result.municipality is not None
     assert curitiba_result.municipality.name == "Curitiba"
 
+    santo_exact_input = MunicipalityInput(name="Santo Andre", population=100)
+    santo_exact_result = matcher.match(santo_exact_input)
+    assert santo_exact_result.status == ResultStatus.OK
+    assert santo_exact_result.municipality is not None
+    assert santo_exact_result.municipality.name == "Santo André"
+
     santo_input = MunicipalityInput(name="Santoo Andre", population=100)
     santo_result = matcher.match(santo_input)
     assert santo_result.status == ResultStatus.OK
     assert santo_result.municipality is not None
     assert santo_result.municipality.name == "Santo André"
+
+
+def test_multiple_identical_names_become_ambiguous() -> None:
+    ibge = [
+        IbgeMunicipality(id_ibge=100, name="Santo André", uf="SP", region="Sudeste"),
+        IbgeMunicipality(id_ibge=200, name="Santo André", uf="PB", region="Nordeste"),
+    ]
+
+    matcher = MunicipalityMatcher(ibge)
+
+    input_row = MunicipalityInput(name="Santo Andre", population=100)
+    result = matcher.match(input_row)
+
+    # Com dois municípios com exatamente o mesmo nome normalizado,
+    # continuamos sinalizando o caso como ambíguo, mas o matcher
+    # escolhe um candidato determinístico para permitir o
+    # enriquecimento dos campos IBGE.
+    assert result.status == ResultStatus.AMBIGUOUS
+    assert result.municipality is not None
+    assert result.municipality.uf == "SP"
 
 
 def test_returns_not_found_when_no_reasonable_candidate(ibge_sample: list[IbgeMunicipality]) -> None:
@@ -71,4 +97,4 @@ def test_returns_ambiguous_when_multiple_best_candidates_within_threshold(ibge_s
     result = matcher.match(input_row)
 
     assert result.status == ResultStatus.AMBIGUOUS
-    assert result.municipality is None
+    assert result.municipality is not None

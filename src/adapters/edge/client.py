@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict
 
 import requests
@@ -23,10 +24,13 @@ class RequestsEdgeStatsClient(StatsSender):
         self._timeout = timeout
 
     def send(self, stats: Stats) -> EdgeResponse:
+        logger = logging.getLogger(__name__)
+
         url = self._config.project_function_url
         token = self._config.access_token
 
         if not url or not token:
+            logger.warning("Skipping Edge Function call: missing PROJECT_FUNCTION_URL or ACCESS_TOKEN")
             return EdgeResponse(
                 success=False,
                 score=None,
@@ -36,6 +40,8 @@ class RequestsEdgeStatsClient(StatsSender):
 
         payload = self._build_payload(stats)
 
+        logger.info("Sending stats payload to Edge Function: %s", json.dumps(payload, ensure_ascii=False))
+
         headers = {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -44,11 +50,14 @@ class RequestsEdgeStatsClient(StatsSender):
         try:
             response = requests.post(url, headers=headers, data=json.dumps(payload), timeout=self._timeout)
         except requests.Timeout:  # type: ignore[attr-defined]
+            logger.error("Timeout while calling Edge Function at %s", url)
             return EdgeResponse(success=False, score=None, feedback=None, error_message="Timeout calling Edge Function")
         except requests.RequestException:  # type: ignore[attr-defined]
+            logger.error("Network error while calling Edge Function at %s", url)
             return EdgeResponse(success=False, score=None, feedback=None, error_message="Network error calling Edge Function")
 
         if response.status_code != 200:
+            logger.error("Unexpected status from Edge Function (%s) at %s", response.status_code, url)
             return EdgeResponse(
                 success=False,
                 score=None,
@@ -59,11 +68,13 @@ class RequestsEdgeStatsClient(StatsSender):
         try:
             body = response.json()
         except ValueError:
+            logger.error("Invalid JSON received from Edge Function at %s", url)
             return EdgeResponse(success=False, score=None, feedback=None, error_message="Invalid JSON from Edge Function")
 
         score = self._extract_optional_float(body, "score")
         feedback = self._extract_optional_str(body, "feedback")
 
+        logger.info("Edge Function call succeeded; score=%s", score)
         return EdgeResponse(success=True, score=score, feedback=feedback)
 
     def _build_payload(self, stats: Stats) -> Dict[str, Any]:

@@ -20,7 +20,20 @@ class StatsCalculator:
         populations_by_region: Dict[str, List[int]] = defaultdict(list)
 
         for line in lines:
-            if line.status == ResultStatus.OK:
+            # Para fins de estatísticas, consideramos como "OK" tanto
+            # as linhas explicitamente marcadas como OK quanto as
+            # linhas AMBIGUO que possuem um município IBGE escolhido
+            # (ou seja, com dados de região/código preenchidos).
+            is_effective_ok = (
+                line.status == ResultStatus.OK
+                or (
+                    line.status == ResultStatus.AMBIGUOUS
+                    and line.region is not None
+                    and line.id_ibge is not None
+                )
+            )
+
+            if is_effective_ok:
                 total_ok += 1
                 pop_total_ok += line.population_input
                 if line.region is not None:

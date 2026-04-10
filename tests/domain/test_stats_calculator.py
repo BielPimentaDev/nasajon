@@ -26,6 +26,8 @@ def test_calculates_totals_and_averages_per_region() -> None:
         make_result_line(ResultStatus.OK, 200, "Sul"),
         make_result_line(ResultStatus.NOT_FOUND, 500, None),
         make_result_line(ResultStatus.API_ERROR, 400, None),
+        # Linhas AMBIGUO com dados de IBGE preenchidos devem ser
+        # consideradas como "efetivamente OK" nas estatísticas.
         make_result_line(ResultStatus.AMBIGUOUS, 999, "Centro-Oeste"),
     ]
 
@@ -33,15 +35,18 @@ def test_calculates_totals_and_averages_per_region() -> None:
     stats: Stats = calculator.calculate(lines)
 
     assert stats.total_municipalities == 6
-    assert stats.total_ok == 3
+    # 3 OK explícitos + 1 AMBIGUO com dados IBGE
+    assert stats.total_ok == 4
     assert stats.total_not_found == 1
     assert stats.total_api_error == 1
-    assert stats.pop_total_ok == 600
+    # 100 + 300 + 200 + 999
+    assert stats.pop_total_ok == 1599
 
     assert stats.average_by_region["Sudeste"] == 200.0
     assert stats.average_by_region["Sul"] == 200.0
-    # AMBIGUOUS entries should not participate in averages
-    assert "Centro-Oeste" not in stats.average_by_region
+    # A entrada AMBIGUO com dados de IBGE passa a participar das
+    # médias por região.
+    assert stats.average_by_region["Centro-Oeste"] == 999.0
 
 
 def test_region_without_ok_entries_is_not_present_in_averages() -> None:

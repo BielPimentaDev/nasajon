@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import logging
 from pathlib import Path
 from typing import Iterable
 
@@ -24,8 +25,15 @@ class CsvResultWriter:
         self._path = Path(path)
 
     def write(self, lines: Iterable[ResultLine]) -> None:
-        with self._path.open("w", encoding="utf-8", newline="") as f:
-            self._write_to_fileobj(f, lines)
+        logger = logging.getLogger(__name__)
+
+        try:
+            with self._path.open("w", encoding="utf-8", newline="") as f:
+                logger.info("Writing result CSV to %s", self._path)
+                self._write_to_fileobj(f, lines)
+        except OSError as exc:
+            logger.error("Error writing result CSV to %s: %s", self._path, exc)
+            raise
 
     def _write_to_fileobj(self, fileobj, lines: Iterable[ResultLine]) -> None:
         writer = csv.writer(fileobj)

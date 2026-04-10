@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Protocol, Sequence, runtime_checkable
@@ -78,12 +79,14 @@ class ProcessMunicipalitiesUseCase:
 
     def execute(self) -> ProcessMunicipalitiesResult:
         """Run the full processing pipeline and return a summary result."""
+        logger = logging.getLogger(__name__)
 
         input_rows = list(self._municipality_reader.read())
 
         try:
             ibge_municipalities = self._ibge_gateway.get_all_municipalities()
-        except Exception:
+        except Exception as exc:
+            logger.error("IBGE gateway failed; marking all lines with ERRO_API: %s", exc)
             result_lines = [
                 self._build_line_api_error(row)
                 for row in input_rows
@@ -95,7 +98,10 @@ class ProcessMunicipalitiesUseCase:
                 for row in input_rows
             ]
 
-        self._result_writer.write(result_lines)
+        try:
+            self._result_writer.write(result_lines)
+        except OSError as exc:
+            logger.error("Failed to write resultado.csv to %s: %s", self._result_csv_path, exc)
 
         stats = self._stats_calculator.calculate(result_lines)
         edge_response = self._stats_sender.send(stats)
@@ -123,7 +129,11 @@ class ProcessMunicipalitiesUseCase:
         municipality: IbgeMunicipality | None = getattr(match, "municipality", None)
         status: ResultStatus = getattr(match, "status", ResultStatus.NOT_FOUND)
 
-        if status is ResultStatus.OK and municipality is not None:
+        # Mesmo quando o status é AMBIGUO, podemos ter um município
+        # escolhido de forma determinística pelo matcher. Nesse caso,
+        # preenchemos os campos do IBGE, mas mantemos o status AMBIGUO
+        # no resultado.
+        if municipality is not None:
             municipality_ibge = municipality.name
             uf = municipality.uf
             region = municipality.region
