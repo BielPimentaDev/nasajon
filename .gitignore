@@ -1,5 +1,2 @@
-ai/
-
-venv/
-.env/
-.venv/
+.env
+/ai
